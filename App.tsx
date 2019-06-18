@@ -24,7 +24,7 @@ export default class App extends Component<Props> {
     return (
       <View style={styles.container}>
         <Text style={styles.welcome}>typescript react native LK</Text>
-        <Text style={styles.instructions}>To get started, edit App.tsx</Text>
+        <Text style={styles.instructions}>test change </Text>
         <Text style={styles.instructions}>{instructions}</Text>
       </View>
     );
