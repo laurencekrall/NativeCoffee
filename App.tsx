@@ -2,6 +2,11 @@ import React, {Component} from 'react';
 import {Platform, StyleSheet, Text, View, TouchableOpacity, Image, Dimensions} from 'react-native';
 import { RNCamera, FaceDetector } from 'react-native-camera';
 import { declareExportAllDeclaration, declareTypeAlias } from '@babel/types';
+const vision = require('@google-cloud/vision');
+
+const productSearchClient = new vision.ProductSearchClient({keyFilename : './token.json'});
+const imageAnnotatorClient = new vision.ImageAnnotatorClient({keyFilename : './token.json'});
+
 
 const instructions = Platform.select({
   ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
@@ -79,11 +84,78 @@ renderImage() {
   takePicture = async (camera : RNCamera) => {
     const options = { quality: 0.5, base64: true };
     const data = await camera.takePictureAsync(options);
-    data.base64
+
+    var result = await this.getSimilarProductsFile(
+      "ninth-terminal-245420",
+      "europe-west1",
+      "1",
+      "packagedgoods-v1",
+      "",
+      data.base64)
+      
     this.setState({pictureUrl : data.uri })
     console.log(data.uri);
   };
 
+   getSimilarProductsFile = async (
+    projectId : string,
+    location : string,
+    productSetId : string,
+    productCategory : string,
+    filter : any,
+    base64? : any,
+  ) => {
+    // Imports the Google Cloud client library
+    // const vision = require('@google-cloud/vision');
+    // const fs = require('fs');
+    // // Creates a client
+    // const productSearchClient = new vision.ProductSearchClient();
+    // const imageAnnotatorClient = new vision.ImageAnnotatorClient();
+  
+    /**
+     * TODO(developer): Uncomment the following line before running the sample.
+     */
+    // const projectId = 'nodejs-docs-samples';
+    // const location = 'us-west1';
+    // const productSetId = 'indexed_product_set_id_for_testing';
+    // const productCategory = 'apparel';
+    // const filePath = './resources/shoes_1.jpg';
+    // const filter = '';
+    const productSetPath = productSearchClient.productSetPath(
+      projectId,
+      location,
+      productSetId
+    );
+    //const content = fs.readFileSync(filePath, 'base64');
+    const request = {
+      // The input image can be a GCS link or HTTPS link or Raw image bytes.
+      // Example:
+      // To use GCS link replace with below code
+      // image: {source: {gcsImageUri: filePath}}
+      // To use HTTP link replace with below code
+      // image: {source: {imageUri: filePath}}
+      image: {content: base64},
+      features: [{type: 'PRODUCT_SEARCH'}],
+      imageContext: {
+        productSearchParams: {
+          productSet: productSetPath,
+          productCategories: [productCategory],
+          filter: filter,
+        },
+      },
+    };
+    const [response] = await imageAnnotatorClient.batchAnnotateImages({
+      requests: [request],
+    });
+    const results = response['responses'][0]['productSearchResults']['results'];
+    console.log('\nSimilar product information:');
+    results.forEach( (result : any) => {
+      console.log('Product id:', result['product'].name.split('/').pop(-1));
+      console.log('Product display name:', result['product'].displayName);
+      console.log('Product description:', result['product'].description);
+      console.log('Product category:', result['product'].productCategory);
+    });
+  }
   
 }
 
