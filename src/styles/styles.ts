@@ -1,12 +1,30 @@
 import { StyleSheet } from "react-native";
 
 export const styleColors = {
-    blue : '#OA2342',
+    blue : '#0A2342',
     red : '#D62828',
     orange : '#F6511D',
     yellow : '#FCBF49',
     ivory : '#EAE2B7'
 }
+
+export const baseStyles = StyleSheet.create({
+    row : {
+        flex : 1,
+        flexDirection : 'row',
+        flexWrap : 'wrap',
+        alignItems : 'flex-start'
+    },
+    square : {
+        aspectRatio : 1
+    },
+    col6 : {
+        width : "50%"
+    },
+    col3 : {
+        width : "25%"
+    }
+});
 
 const styles = StyleSheet.create({
     heading1 : {

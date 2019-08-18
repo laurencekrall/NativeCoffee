@@ -8,15 +8,10 @@ import ProductSeachResult from './DTO/ProductSearchResult';
 import MatchedProduct from './src/components/MatchedProducts';
 import styles, { styleColors } from './src/styles/styles';
 import ShowImageResult from './src/components/ShowImageResult';
+import NewProductForm from './src/components/NewProductForm';
+import CreateRateableRequest from './DTO/CreateRateableRequest';
 
 const apiUrl = "https://laurenceazure.azurewebsites.net/api";
-
-const instructions = Platform.select({
-  ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
-  android:
-    'Double tap R on your keyboard to reload,\n' +
-    'Shake or press menu button for dev menu',
-});
 
 const PendingView = () => (
   <View
@@ -31,15 +26,27 @@ const PendingView = () => (
 
 
 interface Props {}
-export default class App extends Component<Props, {pictureUrl : string, text : string[], productResults : ProductSeachResult[]}> {
+export default class App extends Component<Props,
+{
+  showForm : boolean, 
+  pictureUrl : string, 
+  base64 : string, 
+  addWasSuccess : boolean, 
+  productResults : 
+  ProductSeachResult[], 
+  errorText : string
+}>{
 
   constructor(props : any) {
     super(props);
 
     this.state = {
       pictureUrl : "",
-      text : ["no"],
-      productResults : []
+      productResults : [],
+      errorText : "",
+      showForm : false,
+      base64 : '',
+      addWasSuccess : false
     }
   }
 
@@ -48,50 +55,44 @@ export default class App extends Component<Props, {pictureUrl : string, text : s
   clearLastPicture = () => {
     this.setState({ pictureUrl: "" });
   }
-
-renderImage() {
-  return (
-    <View>
-      <Image
-        source={{ uri: this.state.pictureUrl }}
-        style={styles.preview}
-      />
-      <Text
-        style={styles.cancel}
-        onPress={this.clearLastPicture}
-      >Cancel
-      </Text>
-      <View style={{backgroundColor:"#0c0", width : "100%"}}>
-        <Text style={styles.heading1}>Results</Text>
-        {this.state.productResults.length == 0 ? <ActivityIndicator size="large" color={styleColors.blue} /> : this.state.productResults.map(x => <MatchedProduct {...x} key={x.productName} /> )}        
-      </View>        
-    </View>
-  );
-}
-  componentDidMount(){
-    // this.setState({ text: ["did mount"] }, () => {
-    //   let promise = axios.get(`${apiUrl}/image`).then(
-    //     (x: AxiosResponse<string[]>) => {
-    //       this.setState({ text: x.data });
-    //     }).catch((error: AxiosError) => {
-    //       this.setState({ text: [error.message] })
-    //       console.log(error);
-    //     });
-    //   promise.then(x => {
-    //     this.setState({ text: [...this.state.text, "after call mount"] });
-    //   })
-    // });    
+  showNewProductForm = () => {
+    this.setState({ showForm : true })
   }
+
+  saveNewProduct = (name : string, rating : number) => {
+    let fileName = `${encodeURI(name.replace(/\s/g, ''))}.png`;
+
+    let request : CreateRateableRequest = {
+      base64Image : this.state.base64,
+      name : name,
+      fileName : fileName,
+      rating : rating
+    }
+
+    let promise = axios.post(`${apiUrl}/image/Add`, request).then(
+      (x : AxiosResponse<number>) => {
+          this.setState({addWasSuccess : x.data > 0});
+          console.log(JSON.stringify(x.data));
+          return x.data;
+      }).catch( (error : AxiosError) => {
+        this.setState({errorText : error.message})
+        console.log(error);
+        return 0;
+      });
+      return promise;
+  }
+
   render() {
-    if(this.state.pictureUrl.length > 0){
-      return <ShowImageResult {...this.state} clearLastPicture={this.clearLastPicture} />
+    if(this.state.showForm && this.state.pictureUrl.length > 0){
+      return <NewProductForm localImageUri={this.state.pictureUrl} onFormSubmit={this.saveNewProduct} goBack={() => this.setState({showForm : false})}  />
+    }
+    else if(this.state.pictureUrl.length > 0){
+      return <ShowImageResult {...this.state} clearLastPicture={this.clearLastPicture}  saveAsNewProduct={this.showNewProductForm} />
     }
     else{
       return (
         <View style={styles.container}>
-          <Text style={styles.welcome}>Laurence K</Text>
-          {/* {this.state.text.map(x => <Text>{x}</Text>)} */}
-          <RNCamera captureAudio={false} ref={(ref : any) => { this.camera = ref; }} style={{ flex: 1, width: '100%'}} >{({ camera, status, recordAudioPermissionStatus }) => {
+          <RNCamera captureAudio={false} ref={(ref : any) => { this.camera = ref; }} style={{ flex: 1, width: '100%', justifyContent : 'flex-end'}} >{({ camera, status, recordAudioPermissionStatus }) => {
               if (status !== 'READY') return <PendingView />;
               return (
                 <View style={{ flex: 0, flexDirection: 'row', justifyContent: 'center' }}>
@@ -101,8 +102,7 @@ renderImage() {
                 </View>
               );
             }}
-        </RNCamera>
-        <Text style={styles.welcome}>{this.state.pictureUrl}</Text>
+          </RNCamera>
         </View>
       );
     }
@@ -114,7 +114,7 @@ renderImage() {
     
     data.base64 && this.getMatches(data.base64);
     
-    this.setState({pictureUrl : data.uri, productResults : [] })
+    this.setState({pictureUrl : data.uri, base64 : data.base64 ? data.base64 : '', productResults : [] })
     console.log(data.uri);
   };
   
@@ -127,7 +127,7 @@ renderImage() {
           this.setState({productResults : x.data});
           console.log(JSON.stringify(x.data));
       }).catch( (error : AxiosError) => {
-        this.setState({text : [error.message]})
+        this.setState({errorText : error.message})
         console.log(error);
       });
   }
