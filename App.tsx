@@ -1,8 +1,15 @@
 import React, {Component} from 'react';
-import {Platform, StyleSheet, Text, View, TouchableOpacity, Image, Dimensions} from 'react-native';
+import {Platform, StyleSheet, Text, View, TouchableOpacity, Image, Dimensions, ActivityIndicator} from 'react-native';
 import { RNCamera, FaceDetector } from 'react-native-camera';
 import { declareExportAllDeclaration, declareTypeAlias } from '@babel/types';
+import axios, {AxiosResponse, AxiosError} from 'axios';
+import ImageRequest from './DTO/ImageRequest';
+import ProductSeachResult from './DTO/ProductSearchResult';
+import MatchedProduct from './src/components/MatchedProducts';
+import styles, { styleColors } from './src/styles/styles';
+import ShowImageResult from './src/components/ShowImageResult';
 
+const apiUrl = "https://laurenceazure.azurewebsites.net/api";
 
 const instructions = Platform.select({
   ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
@@ -24,17 +31,23 @@ const PendingView = () => (
 
 
 interface Props {}
-export default class App extends Component<Props, {pictureUrl : string}> {
+export default class App extends Component<Props, {pictureUrl : string, text : string[], productResults : ProductSeachResult[]}> {
 
   constructor(props : any) {
     super(props);
 
     this.state = {
-      pictureUrl : ""
+      pictureUrl : "",
+      text : ["no"],
+      productResults : []
     }
   }
 
   camera : any;
+
+  clearLastPicture = () => {
+    this.setState({ pictureUrl: "" });
+  }
 
 renderImage() {
   return (
@@ -45,21 +58,39 @@ renderImage() {
       />
       <Text
         style={styles.cancel}
-        onPress={() => this.setState({ pictureUrl: "" })}
+        onPress={this.clearLastPicture}
       >Cancel
       </Text>
-      <Text style={styles.welcome}>url : {this.state.pictureUrl}</Text>        
+      <View style={{backgroundColor:"#0c0", width : "100%"}}>
+        <Text style={styles.heading1}>Results</Text>
+        {this.state.productResults.length == 0 ? <ActivityIndicator size="large" color={styleColors.blue} /> : this.state.productResults.map(x => <MatchedProduct {...x} key={x.productName} /> )}        
+      </View>        
     </View>
   );
 }
+  componentDidMount(){
+    // this.setState({ text: ["did mount"] }, () => {
+    //   let promise = axios.get(`${apiUrl}/image`).then(
+    //     (x: AxiosResponse<string[]>) => {
+    //       this.setState({ text: x.data });
+    //     }).catch((error: AxiosError) => {
+    //       this.setState({ text: [error.message] })
+    //       console.log(error);
+    //     });
+    //   promise.then(x => {
+    //     this.setState({ text: [...this.state.text, "after call mount"] });
+    //   })
+    // });    
+  }
   render() {
     if(this.state.pictureUrl.length > 0){
-      return this.renderImage();
+      return <ShowImageResult {...this.state} clearLastPicture={this.clearLastPicture} />
     }
     else{
       return (
         <View style={styles.container}>
           <Text style={styles.welcome}>Laurence K</Text>
+          {/* {this.state.text.map(x => <Text>{x}</Text>)} */}
           <RNCamera captureAudio={false} ref={(ref : any) => { this.camera = ref; }} style={{ flex: 1, width: '100%'}} >{({ camera, status, recordAudioPermissionStatus }) => {
               if (status !== 'READY') return <PendingView />;
               return (
@@ -80,48 +111,25 @@ renderImage() {
   takePicture = async (camera : RNCamera) => {
     const options = { quality: 0.5, base64: true };
     const data = await camera.takePictureAsync(options);  
-      
-    this.setState({pictureUrl : data.uri })
+    
+    data.base64 && this.getMatches(data.base64);
+    
+    this.setState({pictureUrl : data.uri, productResults : [] })
     console.log(data.uri);
   };
-   
+  
+  getMatches(base64 : string){
+    var request : ImageRequest = {
+      base64Image : base64
+    };
+    let promise = axios.post(`${apiUrl}/image/GetSimilar`, request).then(
+      (x : AxiosResponse<ProductSeachResult[]>) => {
+          this.setState({productResults : x.data});
+          console.log(JSON.stringify(x.data));
+      }).catch( (error : AxiosError) => {
+        this.setState({text : [error.message]})
+        console.log(error);
+      });
+  }
   
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5FCFF',
-  },
-  capture: {
-    flex: 0,
-    backgroundColor: '#fff',
-    borderRadius: 5,
-    padding: 15,
-    paddingHorizontal: 20,
-    alignSelf: 'center',
-    margin: 20,
-  },
-  welcome: {
-    fontSize: 20,
-    textAlign: 'center',
-    margin: 10,
-  },
-  instructions: {
-    textAlign: 'center',
-    color: '#333333',
-    marginBottom: 5,
-  },
-  preview: {
-    height: 400,
-    width: 400
-  },
-  cancel: {    
-    backgroundColor: '#ccc',
-    color: '#FFF',
-    fontWeight: '600',
-    fontSize: 17,
-  }
-});
