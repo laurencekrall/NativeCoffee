@@ -5,35 +5,30 @@ import { declareExportAllDeclaration, declareTypeAlias } from '@babel/types';
 import axios, {AxiosResponse, AxiosError} from 'axios';
 import ImageRequest from './DTO/ImageRequest';
 import ProductSeachResult from './DTO/ProductSearchResult';
+import RateProductRequest from './DTO/RateProductRequest';
 import MatchedProduct from './src/components/MatchedProducts';
 import styles, { styleColors } from './src/styles/styles';
 import ShowImageResult from './src/components/ShowImageResult';
 import NewProductForm from './src/components/NewProductForm';
 import CreateRateableRequest from './DTO/CreateRateableRequest';
+import PendingView from './src/components/PendingView';
+import CameraScreen from './src/components/CameraScreen';
+import RateProductForm from './src/components/RateProductForm';
 
 const apiUrl = "https://laurenceazure.azurewebsites.net/api";
 
-const PendingView = () => (
-  <View
-    style={{
-      flex: 1,
-      backgroundColor: 'lightgreen',
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}
-  ><Text>Waiting</Text></View>
-);
 
 
 interface Props {}
 export default class App extends Component<Props,
 {
-  showForm : boolean, 
+  location : string, 
   pictureUrl : string, 
   base64 : string, 
   addWasSuccess : boolean, 
-  productResults : 
-  ProductSeachResult[], 
+  rateWasSuccess : boolean, 
+  productResults : ProductSeachResult[], 
+  currentEditProduct? : ProductSeachResult
   errorText : string
 }>{
 
@@ -44,68 +39,19 @@ export default class App extends Component<Props,
       pictureUrl : "",
       productResults : [],
       errorText : "",
-      showForm : false,
+      location : '',
       base64 : '',
-      addWasSuccess : false
+      addWasSuccess : false,
+      rateWasSuccess : false, 
+      currentEditProduct : undefined
     }
   }
-
-  camera : any;
 
   clearLastPicture = () => {
     this.setState({ pictureUrl: "" });
   }
   showNewProductForm = () => {
-    this.setState({ showForm : true })
-  }
-
-  saveNewProduct = (name : string, rating : number) => {
-    let fileName = `${encodeURI(name.replace(/\s/g, ''))}.png`;
-
-    let request : CreateRateableRequest = {
-      base64Image : this.state.base64,
-      name : name,
-      fileName : fileName,
-      rating : rating
-    }
-
-    let promise = axios.post(`${apiUrl}/image/Add`, request).then(
-      (x : AxiosResponse<number>) => {
-          this.setState({addWasSuccess : x.data > 0});
-          console.log(JSON.stringify(x.data));
-          return x.data;
-      }).catch( (error : AxiosError) => {
-        this.setState({errorText : error.message})
-        console.log(error);
-        return 0;
-      });
-      return promise;
-  }
-
-  render() {
-    if(this.state.showForm && this.state.pictureUrl.length > 0){
-      return <NewProductForm localImageUri={this.state.pictureUrl} onFormSubmit={this.saveNewProduct} goBack={() => this.setState({showForm : false})}  />
-    }
-    else if(this.state.pictureUrl.length > 0){
-      return <ShowImageResult {...this.state} clearLastPicture={this.clearLastPicture}  saveAsNewProduct={this.showNewProductForm} />
-    }
-    else{
-      return (
-        <View style={styles.container}>
-          <RNCamera captureAudio={false} ref={(ref : any) => { this.camera = ref; }} style={{ flex: 1, width: '100%', justifyContent : 'flex-end'}} >{({ camera, status, recordAudioPermissionStatus }) => {
-              if (status !== 'READY') return <PendingView />;
-              return (
-                <View style={{ flex: 0, flexDirection: 'row', justifyContent: 'center' }}>
-                  <TouchableOpacity onPress={() => this.takePicture(camera)} style={styles.capture}>
-                    <Text style={{ fontSize: 14 }}>SNAP</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            }}
-          </RNCamera>
-        </View>
-      );
-    }
+    this.setState({ location : 'showForm' })
   }
 
   takePicture = async (camera : RNCamera) => {
@@ -132,4 +78,66 @@ export default class App extends Component<Props,
       });
   }
   
+  saveNewProduct = (name : string, rating : number) => {
+    let fileName = `${encodeURI(name.replace(/\s/g, ''))}.png`;
+
+    let request : CreateRateableRequest = {
+      base64Image : this.state.base64,
+      name : name,
+      fileName : fileName,
+      rating : rating
+    }
+
+    let promise = axios.post(`${apiUrl}/image/Add`, request).then(
+      (x : AxiosResponse<number>) => {
+          this.setState({addWasSuccess : x.data > 0});
+          console.log(JSON.stringify(x.data));
+          return x.data;
+      }).catch( (error : AxiosError) => {
+        this.setState({errorText : error.message})
+        console.log(error);
+        return 0;
+      });
+      return promise;
+  }
+
+  showRateForm = (id : number) => {
+    let item = this.state.productResults.find(x => x.id === id);
+    if(item){
+      this.setState({location : 'rateForm', currentEditProduct : {...item}})
+    }
+  }
+
+  rateProduct = (id : number, rating : number) => {
+    let request : RateProductRequest = {
+      rating : rating
+    }
+    let promise = axios.post(`${apiUrl}/image/Rate/${id}`, request).then(
+      (x : AxiosResponse<void>) => {
+          this.setState({rateWasSuccess : true});
+          return true;
+      }).catch( (error : AxiosError) => {
+        this.setState({rateWasSuccess : false})
+        this.setState({errorText : error.message})
+        console.log(error);
+        return false;
+      });
+      return promise;
+  }
+
+  render() {
+    if(this.state.location === 'rateForm' && this.state.currentEditProduct){
+      return <RateProductForm product={this.state.currentEditProduct} onFormSubmit={this.rateProduct} goBack={() => this.setState({location : '', currentEditProduct : undefined})}  />
+    }
+    else if(this.state.location === 'showForm' && this.state.pictureUrl.length > 0){
+      return <NewProductForm localImageUri={this.state.pictureUrl} onFormSubmit={this.saveNewProduct} goBack={() => this.setState({location : ''})}  />
+    }
+    else if(this.state.pictureUrl.length > 0){
+      return <ShowImageResult {...this.state} clearLastPicture={this.clearLastPicture} rateItem={this.showRateForm} saveAsNewProduct={this.showNewProductForm} />
+    }
+    else{
+      return (<CameraScreen takePicture={this.takePicture} /> )
+    }
+  }
+
 }
