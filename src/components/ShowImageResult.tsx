@@ -33,15 +33,18 @@ const ShowImageResult : React.FC<
                     let oddRow = row % 2 === 1;
 
                     return(
-                        <View key={x.productName} style={{...baseStyles.col6, ...baseStyles.square, height : 400, backgroundColor : (odd && oddRow) ? '#f2f2f2' : '#cecece'}} >
-                            <MatchedProduct {...x} key={x.productName}  />
-                            <Text onPress={() => props.rateItem(x.id)} style={{padding : 10, backgroundColor : styleColors.blue, color : 'white'}}>Rate</Text> 
+                        <View key={x.id} style={{...baseStyles.col6, height : 300, backgroundColor : (odd && oddRow) ? '#f2f2f2' : '#cecece'}} >
+                            <Text onPress={() => props.rateItem(x.id)} style={{padding : 10, margin: 10, backgroundColor : styleColors.blue, color : 'white'}}>Rate</Text> 
+                            <MatchedProduct {...x} key={x.id}  />
                         </View>
                     )             
                 })}      
                 </View>  
             }
-            </View>        
+            </View>
+            <View style={{height:400}}>
+
+            </View>
         </ScrollView>
     )}
 
